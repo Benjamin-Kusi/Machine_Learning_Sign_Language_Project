@@ -2,8 +2,27 @@ import numpy as np
 import cv2 as cv
 import argparse
 import random
+import imutils
 
 from imutils import paths
+
+
+def find_wrist(binary_image, w, h):
+    count = 0
+    for j in range(w):
+        b_w = binary_image[h, j]
+        if b_w == 255:
+            count += 1
+            if count == 15:
+                break
+        else:
+            count = 0
+    return count
+
+
+def crop_image(binary_image, y, x, w, h):
+    crop = binary_image[y:y+h, x:x+w]
+    return crop
 
 # Parsing arguments
 ap = argparse.ArgumentParser()
@@ -40,5 +59,31 @@ for imagePath in imagePaths:
     kernel = np.ones((5, 5), np.uint8)
     erosion = cv.erode(binary_img, kernel, iterations=1)
 
-    # cropping images according to bounding box
+    contours, _ = cv.findContours(erosion, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE)
+    for c in contours:
+        rect = cv.boundingRect(c)
+        if rect[2] < 100 or rect[3] < 100:
+            continue
+        #print(cv.contourArea(c))
+        x, y, w, h = rect
+        cv.rectangle(erosion, (x, y), (x + w, y + h), (255, 0, 0), 2)
 
+    x, y, w, h = rect # keep track of coordinates
+
+    # Rotating image - wrist must always be at the bottom of the frame
+    wrist_row_start = h - 4
+    wrist_row_end = w - 1
+
+    # Find the wrist of the hand and rotate if you don't
+    # Afterwards, crop the image at the bounding box coordinates
+    ret = find_wrist(erosion, wrist_row_end, wrist_row_start)
+    if ret != 15:
+        # image has no wrist, rotate it 270 degrees
+        erosion = imutils.rotate(erosion, 270)
+        cropped = crop_image(erosion, y, x, wrist_row_end, wrist_row_start)
+
+    else:
+        # wrist found
+        cropped = crop_image(erosion, y, x, wrist_row_end, wrist_row_start)
+
+    cv.imshow("Cropped", cropped)
