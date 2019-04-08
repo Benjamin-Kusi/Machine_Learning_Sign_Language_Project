@@ -6,7 +6,6 @@ import imutils
 
 from imutils import paths
 
-
 def find_wrist(binary_image, w, h):
     count = 0
     for j in range(w):
@@ -78,7 +77,7 @@ for imagePath in imagePaths:
     # Afterwards, crop the image at the bounding box coordinates
     ret = find_wrist(erosion, wrist_row_end, wrist_row_start)
     if ret != 15:
-        # image has no wrist, rotate it 270 degrees
+        # image has no wrist, rotate it 27 0 degrees
         erosion = imutils.rotate(erosion, 270)
         cropped = crop_image(erosion, y, x, wrist_row_end, wrist_row_start)
 

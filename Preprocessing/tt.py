@@ -1,11 +1,12 @@
 import cv2 as cv
 import numpy as np
 import imutils
-from matplotlib import pyplot as plt
+
 
 def crop_image(binary_image, y, x, w, h):
     crop = binary_image[y:y+h, x:x+w]
     return crop
+
 
 def find_wrist(binary_image, w, h):
     count = 0
@@ -19,24 +20,84 @@ def find_wrist(binary_image, w, h):
             count = 0
     return count
 
-def find_finger(binary_image, y, x, w, h):
-    cord_dict = {}
-    top_row = x
-    left_col = y
 
-    bottom_most_row = h
-    right_col = w
-
+def find_finger_tip(binary_image, x, y, w, h):
     finger_count = 0
+    pixel_counter = 0
+    print("y is, w is", y, w)
 
-    if top_row <= bottom_most_row:
-        for j in range(y, w):
-            b_w = binary_image[x, j]
+    # iterate over the row from y to w
+    for j in range(y, w):
+        top_row = 0
+        white_pixel = binary_image[top_row, j-1]
+        print("j, top row, white pixel", j, top_row, white_pixel)
 
-    else:
-        return finger_count
+        # is the white pixel actually white ?
+        if white_pixel == 255:
+            pixel_counter += 1
+            print("pixel counter", pixel_counter)
+
+            # white pixel counter checks for 3 consecutive white pixels
+            if pixel_counter == 3:
+
+                if check_left_right(j, pixel_counter):
+                    if check_top_bottom(binary_image, x, y, w, h,j):
+                        print("top bottom checked")
+                        finger_count += 1
+                        print("2. finger count is", finger_count)
+                        find_finger_tip(binary_image, x, y, w, h)
+                    #finger_count = check_top_bottom(binary_image, x, y, w, h)
+
+                else:
+                    print("nyet")
+                    y += 1
+
+                    if y < h:
+                        find_finger_tip(binary_image, x, y, w, h)
+
+            # counter isn't 3, what to do?
 
 
+        # it's not white, move to next pixel
+        else:
+            pixel_counter = 0
+            print("pixel counter", pixel_counter)
+            #continue
+
+    return finger_count
+
+
+# check for left and right of three continuous pixels
+def check_left_right(j, pixel_counter):
+    status = False
+    left_pixel = j - pixel_counter
+    right_pixel = j + 1
+
+    print("left, right", left_pixel,right_pixel)
+    if right_pixel != 255 and left_pixel != 255:
+        status = True
+    print("status", status)
+    return status
+
+
+# check if top pixels are black or single white pixel
+# and bottom pixels are white
+def check_top_bottom(binary_image, x, y, w, h,j):
+    bottom_pixel = y + 2
+    top_pixel = y
+    status = False
+
+    print("top and bottom pixels", top_pixel,bottom_pixel)
+    print("top pixel val", binary_image[j][top_pixel])
+    print("bottom pixel val", binary_image[j][bottom_pixel])
+
+    # check if top is black or single white pixel then, and if bottom pixels are white
+    if binary_image[j][top_pixel] != 255 and binary_image[j][bottom_pixel] == 255:
+        print("bottom pixels are white")
+        status = True
+
+    print("top/bottom status", status)
+    return status
 
 
 image = cv.imread("/Users/lvz/PycharmProjects/Machine_Learning_Sign_Language_Project/Preprocessing/test2.png")
@@ -60,7 +121,7 @@ for c in contours:
         continue
     #print(cv.contourArea(c))
     x, y, w, h = rect
-    #print(x, y, w, h)
+    print(x, y, w, h)
     #cv.rectangle(erosion, (x, y),(x+w, y+h),(255, 0, 0), 2)
 x, y, w, h = rect
 wrist_row_start = h - 4
@@ -80,12 +141,16 @@ else:
     cropped = crop_image(erosion, y, x, wrist_row_end, wrist_row_start)
 
 #cv.imshow("Original", binary_img)
-cv.imwrite("Original.png", binary_img)
+#cv.imwrite("Original.png", binary_img)
 #cv.imshow("Erosion", erosion)
 
-cv.imwrite("Erosion.png", erosion)
+#cv.imwrite("Erosion.png", erosion)
 #cv.imshow("Rotated & Cropped", cropped)
 
-cv.imwrite("Final.png", cropped)
-cv.waitKey(0)
-cv.destroyAllWindows()
+#cv.imwrite("Final.png", cropped)
+#cv.imshow("Last", cropped)
+#cv.waitKey(0)
+#cv.destroyAllWindows()
+
+num = find_finger_tip(cropped, x, y, w, h)
+#print(num)
