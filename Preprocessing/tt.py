@@ -1,3 +1,4 @@
+import math
 import cv2 as cv
 import numpy as np
 import imutils
@@ -22,12 +23,14 @@ def find_wrist(binary_image, w, h):
 
 
 def find_finger_tip(binary_image, x, y, w, h):
+    x_list = []
+    y_list = []
     finger_count = 0
     pixel_counter = 0
-    print("y is, w is", y, w)
+    print("x is, y is, w is", x, y, w)
 
     # iterate over the row from y to w
-    for j in range(y, w):
+    for i in range(x, w):
         top_row = 0
         white_pixel = binary_image[top_row, j-1]
         print("j, top row, white pixel", j, top_row, white_pixel)
@@ -39,16 +42,22 @@ def find_finger_tip(binary_image, x, y, w, h):
 
             # white pixel counter checks for 3 consecutive white pixels
             if pixel_counter == 3:
-
-                if check_left_right(j, pixel_counter):
-                    if check_top_bottom(binary_image, x, y, w, h,j):
+                # if check_left_right(binary_image, j, pixel_counter,y):
+                    if check_top_bottom(binary_image, i, j):
                         print("top bottom checked")
                         finger_count += 1
                         print("2. finger count is", finger_count)
                         find_finger_tip(binary_image, x, y, w, h)
-                    #finger_count = check_top_bottom(binary_image, x, y, w, h)
+                    # finger_count = check_top_bottom(binary_image, x, y, w, h)
+                    else:
+                        print("nyet")
+                        y += 1
 
-                else:
+                        if y < h:
+                            find_finger_tip(binary_image, x, y, w, h)
+
+
+                # else:
                     print("nyet")
                     y += 1
 
@@ -57,50 +66,110 @@ def find_finger_tip(binary_image, x, y, w, h):
 
             # counter isn't 3, what to do?
 
-
         # it's not white, move to next pixel
         else:
             pixel_counter = 0
             print("pixel counter", pixel_counter)
-            #continue
+            # continue
 
+        print("starting loop")
     return finger_count
 
 
 # check for left and right of three continuous pixels
-def check_left_right(j, pixel_counter):
+def check_left_right(binary_image, i, pixel_counter, j):
     status = False
-    left_pixel = j - pixel_counter
-    right_pixel = j + 1
+    left_pixel = i - pixel_counter
+    right_pixel = i + 1
 
-    print("left, right", left_pixel,right_pixel)
-    if right_pixel != 255 and left_pixel != 255:
+    if binary_image[right_pixel][j] != 255 and binary_image[left_pixel][j] != 255:
         status = True
     print("status", status)
     return status
 
 
-# check if top pixels are black or single white pixel
-# and bottom pixels are white
-def check_top_bottom(binary_image, x, y, w, h,j):
-    bottom_pixel = y + 2
-    top_pixel = y
+# checking bottom if on top row
+def check_bottom(binary_image, i_val, j_val):
+    bottom_row = j_val + 1
     status = False
 
-    print("top and bottom pixels", top_pixel,bottom_pixel)
-    print("top pixel val", binary_image[j][top_pixel])
-    print("bottom pixel val", binary_image[j][bottom_pixel])
+    a2 = binary_image[i_val][bottom_row]
+    b2 = binary_image[i_val - 1][bottom_row]
+    c2 = binary_image[i_val - 2][bottom_row]
 
-    # check if top is black or single white pixel then, and if bottom pixels are white
-    if binary_image[j][top_pixel] != 255 and binary_image[j][bottom_pixel] == 255:
-        print("bottom pixels are white")
+    sum_bottom = a2 + b2 + c2
+    if sum_bottom == 765:
         status = True
-
-    print("top/bottom status", status)
+    else:
+        status = False
     return status
 
 
-image = cv.imread("/Users/lvz/PycharmProjects/Machine_Learning_Sign_Language_Project/Preprocessing/test2.png")
+# check if top pixels are black or single white pixel
+# and bottom pixels are white
+def check_top_bottom(binary_image, i_val, j_val):
+    bottom_row = j_val + 1
+    top_row = j_val - 1
+    status = False
+
+    a1 = binary_image[i_val][top_row]
+    a2 = binary_image[i_val][bottom_row]
+    b1 = binary_image[i_val - 1][top_row]
+    b2 = binary_image[i_val - 1][bottom_row]
+    c1 = binary_image[i_val - 2][top_row]
+    c2 = binary_image[i_val - 2][bottom_row]
+
+    sum_top = a1 + b1 + c1
+    sum_bottom = a2 + b2 + c2
+    # top condition
+    if sum_top == 0 or sum_top == 255:
+        if sum_bottom == 765:
+            status = True
+        else:
+            status = False
+    else:
+        status = False
+    return status
+
+
+def check_centroid(x, y):
+    n = len(x)
+    x_coord = sum(x)/n
+    y_coord = sum(y)/n
+
+    centroid = x_coord, y_coord
+
+    return centroid
+
+
+def calc_angle_distance(centroid, vertice_x, vertice_y):
+    angle_list = []
+    distance_list = []
+
+    for i in range(len(vertice_x)):
+        dx = centroid[0] - vertice_x[i]
+        dy = centroid[1] - vertice_y[i]
+        rad = math.atan2(dx/dy)
+        deg = math.degrees(rad)
+        angle_list.append(deg)
+
+        distance_list.append(math.sqrt((centroid[0] - vertice_x[i])**2 + (centroid[1] - vertice_y[i])**2))
+
+    return angle_list, distance_list
+
+
+def calc_area(binary_image, x, y, w, h):
+    white_pixels = 0
+    for i in range(x, w):
+        for j in range(y, h):
+            if binary_image[i][j] == 255:
+                white_pixels += 1
+            else:
+                continue
+
+    return white_pixels
+
+image = cv.imread("/Users/lvz/PycharmProjects/Machine_Learning_Sign_Language_Project/Preprocessing/test3.png")
 image = cv.resize(image, (360, 360))
 image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
 blur = cv.GaussianBlur(image, (5, 5), 0)
@@ -121,36 +190,37 @@ for c in contours:
         continue
     #print(cv.contourArea(c))
     x, y, w, h = rect
-    print(x, y, w, h)
+    #print(x, y, w, h)
     #cv.rectangle(erosion, (x, y),(x+w, y+h),(255, 0, 0), 2)
 x, y, w, h = rect
 wrist_row_start = h - 4
 wrist_row_end = w - 1
 
-ret = find_wrist(erosion, wrist_row_end, wrist_row_start)
-print(ret)
-if ret != 50:
+#ret = find_wrist(erosion, wrist_row_end, wrist_row_start)
+#print(ret)
+#if ret != 50:
     # image has no wrist, rotate it 90 degrees
-    print("rotating")
-    erosion = imutils.rotate(erosion, 270)
-    cropped = crop_image(erosion, y, x, wrist_row_end, wrist_row_start)
+  #  print("rotating")
+ #   erosion = imutils.rotate(erosion, 270)
+   # cropped = crop_image(erosion, y, x, wrist_row_end, wrist_row_start)
 
-else:
+#else:
     # wrist found
-    print("found wrist")
-    cropped = crop_image(erosion, y, x, wrist_row_end, wrist_row_start)
+ #   print("found wrist")
+  #  cropped = crop_image(erosion, y, x, wrist_row_end, wrist_row_start)
 
 #cv.imshow("Original", binary_img)
 #cv.imwrite("Original.png", binary_img)
 #cv.imshow("Erosion", erosion)
 
 #cv.imwrite("Erosion.png", erosion)
-#cv.imshow("Rotated & Cropped", cropped)
+#cv.imshow("Rotated & Cropped", erosion)
 
 #cv.imwrite("Final.png", cropped)
 #cv.imshow("Last", cropped)
 #cv.waitKey(0)
 #cv.destroyAllWindows()
 
-num = find_finger_tip(cropped, x, y, w, h)
+num = find_finger_tip(erosion, x, y, w, h)
 #print(num)
+calc_area(erosion, x, y, w, h)
