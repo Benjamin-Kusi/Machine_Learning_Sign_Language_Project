@@ -29,8 +29,8 @@ def find_finger_tip(binary_image, x, y, w, h):
     pixel_counter = 0
 
     # iterate over the image in x and y
-    for j in range(y, h+1):
-        for i in range(x, w+1):
+    for j in range(y, h):
+        for i in range(x, w):
             pixel = binary_image[i][j]
             # is the pixel  white ?
             if pixel == 255:
@@ -65,7 +65,7 @@ def check_left_right(binary_image, i, p_counter, j):
 
     if binary_image[right_pixel][j] != 255 and binary_image[left_pixel][j] != 255:
         status = True
-    print("status", status)
+    print("left right status", status)
     return status
 
 
@@ -203,5 +203,5 @@ wrist_row_end = w - 1
 #cv.destroyAllWindows()
 
 num = find_finger_tip(erosion, x, y, w, h)
-#print(num)
-calc_area(erosion, x, y, w, h)
+print(num)
+#calc_area(erosion, x, y, w, h)
