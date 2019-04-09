@@ -23,63 +23,44 @@ def find_wrist(binary_image, w, h):
 
 
 def find_finger_tip(binary_image, x, y, w, h):
-    x_list = []
-    y_list = []
+    x_coords = []
+    y_coords = []
     finger_count = 0
     pixel_counter = 0
-    print("x is, y is, w is", x, y, w)
 
-    # iterate over the row from y to w
-    for i in range(x, w):
-        top_row = 0
-        white_pixel = binary_image[top_row, j-1]
-        print("j, top row, white pixel", j, top_row, white_pixel)
-
-        # is the white pixel actually white ?
-        if white_pixel == 255:
-            pixel_counter += 1
-            print("pixel counter", pixel_counter)
-
-            # white pixel counter checks for 3 consecutive white pixels
-            if pixel_counter == 3:
-                # if check_left_right(binary_image, j, pixel_counter,y):
-                    if check_top_bottom(binary_image, i, j):
-                        print("top bottom checked")
-                        finger_count += 1
-                        print("2. finger count is", finger_count)
-                        find_finger_tip(binary_image, x, y, w, h)
-                    # finger_count = check_top_bottom(binary_image, x, y, w, h)
+    # iterate over the image in x and y
+    for j in range(y, h+1):
+        for i in range(x, w+1):
+            pixel = binary_image[i][j]
+            # is the pixel  white ?
+            if pixel == 255:
+                pixel_counter += 1
+                # white pixel counter checks for 3 consecutive white pixels
+                if pixel_counter == 3:
+                    if check_left_right(binary_image, i, pixel_counter, j):
+                        if j == y:
+                            if check_bottom(binary_image, i , j):
+                                finger_count += 1
+                            else:
+                                pixel_counter = 0
+                        else:
+                            if check_top_bottom(binary_image, i, j):
+                                x_coords.append(i)
+                                y_coords.append(j)
+                                finger_count += 1
+                            else:
+                                pixel_counter = 0
                     else:
-                        print("nyet")
-                        y += 1
-
-                        if y < h:
-                            find_finger_tip(binary_image, x, y, w, h)
-
-
-                # else:
-                    print("nyet")
-                    y += 1
-
-                    if y < h:
-                        find_finger_tip(binary_image, x, y, w, h)
-
-            # counter isn't 3, what to do?
-
-        # it's not white, move to next pixel
-        else:
-            pixel_counter = 0
-            print("pixel counter", pixel_counter)
-            # continue
-
-        print("starting loop")
-    return finger_count
+                        pixel_counter = 0
+            else:
+                pixel_counter = 0
+    return [finger_count, x_coords, y_coords]
 
 
 # check for left and right of three continuous pixels
-def check_left_right(binary_image, i, pixel_counter, j):
+def check_left_right(binary_image, i, p_counter, j):
     status = False
-    left_pixel = i - pixel_counter
+    left_pixel = i - p_counter
     right_pixel = i + 1
 
     if binary_image[right_pixel][j] != 255 and binary_image[left_pixel][j] != 255:
@@ -132,10 +113,10 @@ def check_top_bottom(binary_image, i_val, j_val):
     return status
 
 
-def check_centroid(x, y):
-    n = len(x)
-    x_coord = sum(x)/n
-    y_coord = sum(y)/n
+def find_centroid(x_coords, y_coords):
+    n = len(x_coords)
+    x_coord = sum(x_coords)/n
+    y_coord = sum(y_coords)/n
 
     centroid = x_coord, y_coord
 
@@ -153,7 +134,7 @@ def calc_angle_distance(centroid, vertice_x, vertice_y):
         deg = math.degrees(rad)
         angle_list.append(deg)
 
-        distance_list.append(math.sqrt((centroid[0] - vertice_x[i])**2 + (centroid[1] - vertice_y[i])**2))
+        distance_list.append(math.sqrt((vertice_x[i] - centroid[0])**2 + (vertice_y[i] - centroid[1])**2))
 
     return angle_list, distance_list
 
