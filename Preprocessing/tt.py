@@ -36,7 +36,7 @@ def find_finger_tip(binary_image, x, y, w, h):
             if pixel == 255:
                 pixel_counter += 1
                 # white pixel counter checks for 3 consecutive white pixels
-                if pixel_counter == 3:
+                if pixel_counter == 12:
                     if check_left_right(binary_image, i, pixel_counter, j):
                         if j == y:
                             if check_bottom(binary_image, i , j):
@@ -63,7 +63,10 @@ def check_left_right(binary_image, i, p_counter, j):
     left_pixel = i - p_counter
     right_pixel = i + 1
 
-    if binary_image[right_pixel][j] != 255 and binary_image[left_pixel][j] != 255:
+    r = binary_image[right_pixel][j]
+    l = binary_image[left_pixel][j]
+
+    if binary_image[right_pixel][j] == 0 and binary_image[left_pixel][j] == 0:
         status = True
     print("left right status", status)
     return status
