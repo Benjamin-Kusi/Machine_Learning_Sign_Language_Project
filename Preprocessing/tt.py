@@ -8,18 +8,78 @@ def crop_image(binary_image, y, x, w, h):
     crop = binary_image[y:y + h, x:x + w]
     return crop
 
+def check_right_wrist(binary_image, y, w, h):
+    right_pixels = 0
+    status = False
 
-def find_wrist(binary_image, w, h):
-    count = 0
-    for j in range(w):
-        b_w = binary_image[h, j]
-        if b_w == 255:
-            count += 1
-            if count == 50:
-                break
+    for i in range(y, h):
+        right_pixel_val = binary_image[i][w-1]
+        if right_pixels == 15:
+            status = True
+            break
+
+        if right_pixel_val == 255:
+            right_pixels += 1
         else:
-            count = 0
-    return count
+            right_pixels = 0
+
+    return status
+
+
+
+def check_top_wrist(binary_image, x, w):
+    top_pixels = 0
+    status = False
+
+    for i in range(x, w):
+        top_pixel_val = binary_image[0][i]
+        if top_pixels == 15:
+            status = True
+            break
+
+        if top_pixel_val == 255:
+            top_pixels += 1
+        else:
+            top_pixels = 0
+
+    return status
+
+def check_bottom_wrist(binary_image, w, h):
+    bottom_pixels = 0
+    status = False
+
+    for i in range(w):
+        bottom_pixel_val = binary_image[h - 1][i]
+        if bottom_pixels == 15:
+            status = True
+            break  # don't rotate
+
+        if bottom_pixel_val == 255:
+            bottom_pixels += 1
+        else:
+            bottom_pixels = 0
+    # if counter not 15, check right and top borders
+    return status
+
+# Function to check for a wrist at the bottom, top and right borders
+def find_wrist(binary_image, x, y, w, h):
+    if check_bottom_wrist(binary_image, w, h) == True:
+        return binary_image
+
+    elif check_top_wrist(binary_image, x, w) == True:
+        erosion = imutils.rotate(binary_image, 180)
+        return erosion
+
+    elif check_right_wrist(binary_image, y, w, h) == True:
+        erosion = imutils.rotate(binary_image, 90)
+        return erosion
+
+    else:
+        return binary_image
+
+
+
+
 
 
 def find_finger_tip(binary_image, x, y, w, h):
@@ -152,7 +212,6 @@ def calc_angle_distance(centroid, vertice_x, vertice_y):
 
     return angle_list, distance_list
 
-
 def calc_area(binary_image, x, y, w, h):
     white_pixels = 0
     for i in range(x, w):
@@ -165,57 +224,71 @@ def calc_area(binary_image, x, y, w, h):
     return white_pixels
 
 
-image = cv.imread("/Users/lvz/PycharmProjects/Machine_Learning_Sign_Language_Project/Preprocessing/benji.png")
-image = cv.resize(image, (360, 360))
-image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
-blur = cv.GaussianBlur(image, (5, 5), 0)
-ret, binary_img = cv.threshold(blur, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
+def pre_process_image():
+    image = cv.imread("/Users/lvz/PycharmProjects/Machine_Learning_Sign_Language_Project/Preprocessing/benji.png")
+    image = cv.resize(image, (360, 360))
+    image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+    blur = cv.GaussianBlur(image, (5, 5), 0)
+    ret, binary_img = cv.threshold(blur, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
 
-kernel = np.ones((5, 5), np.uint8)
+    kernel = np.ones((5, 5), np.uint8)
+    erosion = cv.erode(binary_img, kernel, iterations=1)
 
-erosion = cv.erode(binary_img, kernel, iterations=1)
-# cv.imshow("Original", binary_img)
-# cv.imshow("Show", erosion)
-# cv.waitKey()
+    contours, _ = cv.findContours(erosion, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE)
+    for c in contours:
+        rect = cv.boundingRect(c)
+        if rect[2] < 100 or rect[3] < 100:
+            continue
+        x, y, w, h = rect
 
-contours, _ = cv.findContours(erosion, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE)
-for c in contours:
-    # print("found")
-    rect = cv.boundingRect(c)
-    if rect[2] < 100 or rect[3] < 100:
-        continue
-    # print(cv.contourArea(c))
-    x, y, w, h = rect
-    # print(x, y, w, h)
-    # cv.rectangle(erosion, (x, y),(x+w, y+h),(255, 0, 0), 2)
-x, y, w, h = rect
-wrist_row_start = h - 4
-wrist_row_end = w - 1
+    return [erosion, x, y, w, h]
+    #wrist_row_start = h - 4
+    #wrist_row_end = w - 1
 
-ret = find_wrist(erosion, wrist_row_end, wrist_row_start)
-# print(ret)
-# if ret != 50:
-#     print("rotating")
-#     erosion = imutils.rotate(erosion, 270)
-#     cropped = crop_image(erosion, y, x, wrist_row_end, wrist_row_start)
-#
-# else:
-# # wrist found
-#     print("found wrist")
-#     cropped = crop_image(erosion, y, x, wrist_row_end, wrist_row_start)
+    #ret = find_wrist(erosion, wrist_row_end, wrist_row_start)
+    # print(ret)
+    # if ret != 50:
+    #     print("rotating")
+    #     erosion = imutils.rotate(erosion, 270)
+    #     cropped = crop_image(erosion, y, x, wrist_row_end, wrist_row_start)
+    #
+    # else:
+    # # wrist found
+    #     print("found wrist")
+    #     cropped = crop_image(erosion, y, x, wrist_row_end, wrist_row_start)
 
-# cv.imshow("Original", binary_img)
-# cv.imwrite("Original.png", binary_img)
-# cv.imshow("Erosion", erosion)
+    # cv.imshow("Original", binary_img)
+    # cv.imwrite("Original.png", binary_img)
+    # cv.imshow("Erosion", erosion)
 
-# cv.imwrite("Erosion.png", erosion)
-# cv.imshow("Rotated & Cropped", erosion)
+    # cv.imwrite("Erosion.png", erosion)
+    # cv.imshow("Rotated & Cropped", erosion)
 
-#cv.imwrite("Final.png", cropped)
-#cv.imshow("Last", cropped)
-#cv.waitKey(0)
-#cv.destroyAllWindows()
+    #cv.imwrite("Final.png", cropped)
+    #cv.imshow("Last", cropped)
+    #cv.waitKey(0)
+    #cv.destroyAllWindows()
 
-num = find_finger_tip(erosion, x, y, w, h)
-print(num)
-# calc_area(erosion, x, y, w, h)
+    #num = find_finger_tip(erosion, x, y, w, h)
+    #print(num)
+    # calc_area(erosion, x, y, w, h)
+
+def main():
+    pre_processed_image = pre_process_image()
+
+    rotated_image = find_wrist(pre_processed_image[0], pre_processed_image[1],
+               pre_processed_image[2], pre_processed_image[3],
+               pre_processed_image[4])
+
+    features = find_finger_tip(rotated_image, pre_processed_image[1],
+               pre_processed_image[2], pre_processed_image[3],
+               pre_processed_image[4])
+
+    centroid = find_centroid(features[1], features[2])
+
+    angles = calc_angle_distance(centroid, features[1], features[2])
+
+    area = calc_area(pre_processed_image[0], pre_processed_image[1],
+               pre_processed_image[2], pre_processed_image[3],
+               pre_processed_image[4])
+    # format to make sure we have a vector at the end of the day
