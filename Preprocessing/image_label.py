@@ -1,9 +1,9 @@
 import os
 
-
 def load_images(folder):
     # list storing image labels
     image_labels = []
+
     # looping through list of all image file names
     for file_name in os.listdir(folder):
         label = file_name.index("_") + 1

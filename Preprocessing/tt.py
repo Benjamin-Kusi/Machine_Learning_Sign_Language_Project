@@ -2,6 +2,7 @@ import math
 import cv2 as cv
 import numpy as np
 import imutils
+import os
 
 
 def crop_image(binary_image, y, x, w, h):
@@ -63,24 +64,19 @@ def check_bottom_wrist(binary_image, w, h):
 
 # Function to check for a wrist at the bottom, top and right borders
 def find_wrist(binary_image, x, y, w, h):
-    if check_bottom_wrist(binary_image, w, h) == True:
+    if check_bottom_wrist(binary_image, w, h):
         return binary_image
 
-    elif check_top_wrist(binary_image, x, w) == True:
+    elif check_top_wrist(binary_image, x, w):
         erosion = imutils.rotate(binary_image, 180)
         return erosion
 
-    elif check_right_wrist(binary_image, y, w, h) == True:
-        erosion = imutils.rotate(binary_image, 90)
+    elif check_right_wrist(binary_image, y, w, h):
+        erosion = imutils.rotate(binary_image, 270)
         return erosion
 
     else:
         return binary_image
-
-
-
-
-
 
 def find_finger_tip(binary_image, x, y, w, h):
     print(x, y, w, h)
@@ -179,6 +175,7 @@ def check_top_bottom(binary_image, i_val, j_val, counter):
         else:
             bottom_status = False
             break
+
     # checking to ensure that a finger tip has been found
     if bottom_status == True and top_status == True:
         general_status = True
@@ -225,7 +222,7 @@ def calc_area(binary_image, x, y, w, h):
 
 
 def pre_process_image():
-    image = cv.imread("/Users/lvz/PycharmProjects/Machine_Learning_Sign_Language_Project/Preprocessing/benji.png")
+    image = cv.imread("/Users/lvz/PycharmProjects/Machine_Learning_Sign_Language_Project/Preprocessing/test5.png")
     image = cv.resize(image, (360, 360))
     image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
     blur = cv.GaussianBlur(image, (5, 5), 0)
@@ -292,3 +289,24 @@ def main():
                pre_processed_image[2], pre_processed_image[3],
                pre_processed_image[4])
     # format to make sure we have a vector at the end of the day
+
+    print("features", features)
+    print("centroid", centroid)
+    print("angles", angles)
+    print("area", area)
+
+
+if __name__ == "__main__":
+    def load_images(folder):
+        # list storing image labels
+        image_labels = []
+
+        # looping through list of all image file names
+        for file_name in os.listdir(folder):
+            label = file_name.index("_") + 1
+
+            # adding extracted label from image name to the list of labels
+            #image_labels.append(file_name[label])
+            main()
+
+        return image_labels
