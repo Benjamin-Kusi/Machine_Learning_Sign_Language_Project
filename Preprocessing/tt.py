@@ -1,13 +1,22 @@
-import math
-import cv2 as cv
+from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
+from keras.layers import Activation
+from keras.models import Sequential
+from keras.optimizers import SGD
+from keras.utils import np_utils
+from keras.layers import Dense
 import numpy as np
+import cv2 as cv
 import imutils
+import math
+import sys
 import os
 
 
 def crop_image(binary_image, y, x, w, h):
     crop = binary_image[y:y + h, x:x + w]
     return crop
+
 
 def check_right_wrist(binary_image, y, w, h):
     right_pixels = 0
@@ -27,7 +36,6 @@ def check_right_wrist(binary_image, y, w, h):
     return status
 
 
-
 def check_top_wrist(binary_image, x, w):
     top_pixels = 0
     status = False
@@ -44,6 +52,7 @@ def check_top_wrist(binary_image, x, w):
             top_pixels = 0
 
     return status
+
 
 def check_bottom_wrist(binary_image, w, h):
     bottom_pixels = 0
@@ -62,6 +71,7 @@ def check_bottom_wrist(binary_image, w, h):
     # if counter not 15, check right and top borders
     return status
 
+
 # Function to check for a wrist at the bottom, top and right borders
 def find_wrist(binary_image, x, y, w, h):
     if check_bottom_wrist(binary_image, w, h):
@@ -77,6 +87,7 @@ def find_wrist(binary_image, x, y, w, h):
 
     else:
         return binary_image
+
 
 def find_finger_tip(binary_image, x, y, w, h):
     print(x, y, w, h)
@@ -113,6 +124,7 @@ def find_finger_tip(binary_image, x, y, w, h):
                         pixel_counter = 0
             else:
                 pixel_counter = 0
+    print(finger_count)
     return [finger_count, x_coords, y_coords]
 
 
@@ -124,7 +136,7 @@ def check_left_right(binary_image, i, p_counter, j):
 
     if binary_image[j][right_pixel] == 0 and binary_image[j][left_pixel] == 0:
         status = True
-    print("left right status", status)
+
     return status
 
 
@@ -194,20 +206,19 @@ def find_centroid(x_coords, y_coords):
 
 
 def calc_angle_distance(centroid, vertice_x, vertice_y):
-    angle_list = []
-    distance_list = []
+    angle_distance_list = []
 
     for i in range(len(vertice_x)):
         dx = centroid[0] - vertice_x[i]
         dy = centroid[1] - vertice_y[i]
         rad = math.atan2(dy, dx)
         deg = math.degrees(rad)
-        angle_list.append(deg)
+        angle_distance_list.append(deg)
 
         distance = math.sqrt(((vertice_x[i] - centroid[0]) ** 2) + (vertice_y[i] - centroid[1]) ** 2)
-        distance_list.append(distance)
+        angle_distance_list.append(distance)
 
-    return angle_list, distance_list
+    return angle_distance_list
 
 def calc_area(binary_image, x, y, w, h):
     white_pixels = 0
@@ -221,8 +232,8 @@ def calc_area(binary_image, x, y, w, h):
     return white_pixels
 
 
-def pre_process_image():
-    image = cv.imread("/Users/lvz/PycharmProjects/Machine_Learning_Sign_Language_Project/Preprocessing/test5.png")
+def pre_process_image(image_name):
+    image = cv.imread(image_name)
     image = cv.resize(image, (360, 360))
     image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
     blur = cv.GaussianBlur(image, (5, 5), 0)
@@ -270,8 +281,9 @@ def pre_process_image():
     #print(num)
     # calc_area(erosion, x, y, w, h)
 
-def main():
-    pre_processed_image = pre_process_image()
+
+def feature_extraction(image_name):
+    pre_processed_image = pre_process_image(image_name)
 
     rotated_image = find_wrist(pre_processed_image[0], pre_processed_image[1],
                pre_processed_image[2], pre_processed_image[3],
@@ -288,25 +300,49 @@ def main():
     area = calc_area(pre_processed_image[0], pre_processed_image[1],
                pre_processed_image[2], pre_processed_image[3],
                pre_processed_image[4])
+
+    angles.append(area)
+
     # format to make sure we have a vector at the end of the day
+    print("features", angles)
 
-    print("features", features)
-    print("centroid", centroid)
-    print("angles", angles)
-    print("area", area)
+    return angles
 
+def main(folder_path):
+    # list storing image labels
+    data = []
+    labels = []
+    i = 0 #keeping count of iterations
+
+    # looping through list of all image file names
+    for file_name in os.listdir(folder_path):
+        label = file_name.index("_") + 1
+        features = feature_extraction(folder_path +"/"+file_name)
+
+        # adding extracted label and filename from image to the list of data and labels
+        data.append(features)
+        labels.append(file_name[label])
+        i += 1
+
+        if i > 0 and i % 1000 == 0:
+            print("[INFO] processed {}/{}".format(i, len(folder_path)))
+
+    le = LabelEncoder()
+    labels = le.fit_transform(labels)
+
+    data = np.array(data)
+    labels = np_utils.to_categorical(labels, 36)
+
+    print("[INFO] splitting data")
+    (trainData, testData, trainLabels, testLabels) = train_test_split(data, labels, test_size=0.15, random_state=42)
+
+    model = Sequential()
+    model.add(Dense(768, input_dim=3072, init="uniform", activation="relu"))
+    model.add(Dense(384, activation="relu", kernel_initializer="uniform"))
+    model.add(Dense(36))
+    model.add(Activation("softmax"))
 
 if __name__ == "__main__":
-    def load_images(folder):
-        # list storing image labels
-        image_labels = []
+    #print(sys.argv[1])
+    main(sys.argv[1])  # main takes path to the dataset
 
-        # looping through list of all image file names
-        for file_name in os.listdir(folder):
-            label = file_name.index("_") + 1
-
-            # adding extracted label from image name to the list of labels
-            #image_labels.append(file_name[label])
-            main()
-
-        return image_labels
