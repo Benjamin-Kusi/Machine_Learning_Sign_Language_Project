@@ -90,7 +90,7 @@ def find_wrist(binary_image, x, y, w, h):
 
 
 def find_finger_tip(binary_image, x, y, w, h):
-    print(x, y, w, h)
+    #print(x, y, w, h)
     x_coords = []
     y_coords = []
     finger_count = 0
@@ -105,7 +105,7 @@ def find_finger_tip(binary_image, x, y, w, h):
                 pixel_counter += 1
                 # white pixel counter checks for 3 consecutive white pixels
                 if pixel_counter == 6:
-                    if check_left_right(binary_image, i, pixel_counter, j):
+                    if check_left_right(binary_image, i, pixel_counter, j, w):
                         if j == y:
                             if check_bottom(binary_image, i, j, pixel_counter):
                                 x_coords.append(i)
@@ -114,7 +114,7 @@ def find_finger_tip(binary_image, x, y, w, h):
                             else:
                                 pixel_counter = 0
                         else:
-                            if check_top_bottom(binary_image, i, j, pixel_counter):
+                            if check_top_bottom(binary_image, i, j, pixel_counter, w, h):
                                 x_coords.append(i)
                                 y_coords.append(j)
                                 finger_count += 1
@@ -131,14 +131,16 @@ def find_finger_tip(binary_image, x, y, w, h):
 
 
 # check for left and right of three continuous pixels
-def check_left_right(binary_image, i, p_counter, j):
+def check_left_right(binary_image, i, p_counter, j, w):
     status = False
     left_pixel = i - p_counter
+
     right_pixel = i + 1
-
-    if binary_image[j][right_pixel] == 0 and binary_image[j][left_pixel] == 0:
-        status = True
-
+    if right_pixel < w:
+        if binary_image[j][right_pixel] == 0 and binary_image[j][left_pixel] == 0:
+            status = True
+    else:
+        status = False
     return status
 
 
@@ -160,12 +162,18 @@ def check_bottom(binary_image, i_val, j_val, counter):
 
 # check if top pixels are black or single white pixel
 # and bottom pixels are white
-def check_top_bottom(binary_image, i_val, j_val, counter):
+def check_top_bottom(binary_image, i_val, j_val, counter, w, h):
     bottom_row = j_val + 1
     top_row = j_val - 1
+    if bottom_row >= h:
+        bottom_row = h-1
+        #print("hhhhhhh",h)
 
     start = i_val - (counter - 1)
     end = i_val + 1
+    if end >= w:
+        end = w
+
     bottom_status = False
     top_status = False
     general_status = False
@@ -184,6 +192,8 @@ def check_top_bottom(binary_image, i_val, j_val, counter):
 
     # checking bottom rows
     for i in range(start, end):
+        #print(start, end)
+        #print(bottom_row,i)
         if binary_image[bottom_row][i] == 255:
             bottom_status = True
         else:
@@ -289,20 +299,24 @@ def main(folder_path):
     # looping through list of all image file names
     for file_name in os.listdir(folder_path):
         label = file_name.index("_") + 1
-        features = feature_extraction(folder_path + "/" + file_name)
-        #print(features)
+        if file_name != ".DS_Store":
+            features = feature_extraction(folder_path + "/" + file_name)
+            #print(features)
 
-        if len(features) != 11:
-            for i in range(len(features), 11):
-                features.append(0)
+            if len(features) != 11:
+                for i in range(len(features), 11):
+                    features.append(0)
 
-        # adding extracted label and filename from image to the list of data and labels
-        data.append(features)
-        labels.append(file_name[label])
-        i += 1
+            # adding extracted label and filename from image to the list of data and labels
+            data.append(features)
+            labels.append(file_name[label])
+            i += 1
 
-        if i > 0 and i % 1000 == 0:
-            print("[INFO] processed {}/{}".format(i, len(folder_path)))
+            if i > 0 and i % 1000 == 0:
+                print("[INFO] processed {}/{}".format(i, len(folder_path)))
+        else:
+            continue
+
     print(data)
     # le = LabelEncoder()
     # labels = le.fit_transform(labels)
