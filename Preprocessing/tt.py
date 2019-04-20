@@ -124,7 +124,9 @@ def find_finger_tip(binary_image, x, y, w, h):
                         pixel_counter = 0
             else:
                 pixel_counter = 0
-    print(finger_count)
+    if finger_count == 0:
+        x_coords = [0]*5
+        y_coords = [0]*5
     return [finger_count, x_coords, y_coords]
 
 
@@ -234,7 +236,8 @@ def calc_area(binary_image, x, y, w, h):
 
 def pre_process_image(image_name):
     image = cv.imread(image_name)
-    image = cv.resize(image, (360, 360))
+    print(image_name)
+    image = cv.resize(image, (260, 260))
     image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
     blur = cv.GaussianBlur(image, (5, 5), 0)
     ret, binary_img = cv.threshold(blur, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
@@ -250,37 +253,6 @@ def pre_process_image(image_name):
         x, y, w, h = rect
 
     return [erosion, x, y, w, h]
-    #wrist_row_start = h - 4
-    #wrist_row_end = w - 1
-
-    #ret = find_wrist(erosion, wrist_row_end, wrist_row_start)
-    # print(ret)
-    # if ret != 50:
-    #     print("rotating")
-    #     erosion = imutils.rotate(erosion, 270)
-    #     cropped = crop_image(erosion, y, x, wrist_row_end, wrist_row_start)
-    #
-    # else:
-    # # wrist found
-    #     print("found wrist")
-    #     cropped = crop_image(erosion, y, x, wrist_row_end, wrist_row_start)
-
-    # cv.imshow("Original", binary_img)
-    # cv.imwrite("Original.png", binary_img)
-    # cv.imshow("Erosion", erosion)
-
-    # cv.imwrite("Erosion.png", erosion)
-    # cv.imshow("Rotated & Cropped", erosion)
-
-    #cv.imwrite("Final.png", cropped)
-    #cv.imshow("Last", cropped)
-    #cv.waitKey(0)
-    #cv.destroyAllWindows()
-
-    #num = find_finger_tip(erosion, x, y, w, h)
-    #print(num)
-    # calc_area(erosion, x, y, w, h)
-
 
 def feature_extraction(image_name):
     pre_processed_image = pre_process_image(image_name)
@@ -304,7 +276,7 @@ def feature_extraction(image_name):
     angles.append(area)
 
     # format to make sure we have a vector at the end of the day
-    print("features", angles)
+    #print("features", angles)
 
     return angles
 
@@ -317,7 +289,12 @@ def main(folder_path):
     # looping through list of all image file names
     for file_name in os.listdir(folder_path):
         label = file_name.index("_") + 1
-        features = feature_extraction(folder_path +"/"+file_name)
+        features = feature_extraction(folder_path + "/" + file_name)
+        #print(features)
+
+        if len(features) != 11:
+            for i in range(len(features), 11):
+                features.append(0)
 
         # adding extracted label and filename from image to the list of data and labels
         data.append(features)
@@ -326,21 +303,32 @@ def main(folder_path):
 
         if i > 0 and i % 1000 == 0:
             print("[INFO] processed {}/{}".format(i, len(folder_path)))
-
-    le = LabelEncoder()
-    labels = le.fit_transform(labels)
-
-    data = np.array(data)
-    labels = np_utils.to_categorical(labels, 36)
-
-    print("[INFO] splitting data")
-    (trainData, testData, trainLabels, testLabels) = train_test_split(data, labels, test_size=0.15, random_state=42)
-
-    model = Sequential()
-    model.add(Dense(768, input_dim=3072, init="uniform", activation="relu"))
-    model.add(Dense(384, activation="relu", kernel_initializer="uniform"))
-    model.add(Dense(36))
-    model.add(Activation("softmax"))
+    print(data)
+    # le = LabelEncoder()
+    # labels = le.fit_transform(labels)
+    #
+    # data = np.array(data)
+    # labels = np_utils.to_categorical(labels, 36)
+    #
+    # print("[INFO] splitting data")
+    # (trainData, testData, trainLabels, testLabels) = train_test_split(data, labels, test_size=0.15, random_state=42)
+    #
+    # model = Sequential()
+    # model.add(Dense(768, input_dim=3072, init="uniform", activation="relu"))
+    # model.add(Dense(384, activation="relu", kernel_initializer="uniform"))
+    # model.add(Dense(36))
+    # model.add(Activation("softmax"))
+    #
+    # # train the model using SGD
+    # print("[INFO] compiling model...")
+    # sgd = SGD(lr=0.01)
+    # model.compile(loss="binary_crossentropy", optimizer=sgd, metrics=["accuracy"])
+    # model.fit(trainData, trainLabels, epochs=50, batch_size=128, verbose=1)
+    #
+    # # show the accuracy on the testing set
+    # print("[INFO] evaluating on testing set...")
+    # (loss, accuracy) = model.evaluate(testData, testLabels,batch_size=128, verbose=1)
+    # print("[INFO] loss={:.4f}, accuracy: {:.4f}%".format(loss,accuracy * 100))
 
 if __name__ == "__main__":
     #print(sys.argv[1])
