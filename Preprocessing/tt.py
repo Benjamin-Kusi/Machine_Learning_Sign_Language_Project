@@ -1,10 +1,13 @@
 from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import GridSearchCV
+from keras.wrappers.scikit_learn import KerasClassifier
 from sklearn.model_selection import train_test_split
 from keras.layers import Activation
 from keras.models import Sequential
 from keras.optimizers import SGD
 from keras.utils import np_utils
 from keras.layers import Dense
+import matplotlib.pyplot as plt
 import numpy as np
 import cv2 as cv
 import imutils
@@ -12,6 +15,13 @@ import math
 import sys
 import os
 
+
+def create_model():
+    # create model
+
+    # Compile model
+    model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+    return model
 
 def crop_image(binary_image, y, x, w, h):
     crop = binary_image[y:y + h, x:x + w]
@@ -103,7 +113,7 @@ def find_finger_tip(binary_image, x, y, w, h):
             # is the pixel  white ?
             if pixel == 255:
                 pixel_counter += 1
-                # white pixel counter checks for 3 consecutive white pixels
+                # white pixel counter checks for 6 consecutive white pixels
                 if pixel_counter == 6:
                     if check_left_right(binary_image, i, pixel_counter, j, w):
                         if j == y:
@@ -232,6 +242,7 @@ def calc_angle_distance(centroid, vertice_x, vertice_y):
 
     return angle_distance_list
 
+
 def calc_area(binary_image, x, y, w, h):
     white_pixels = 0
     for i in range(x, w):
@@ -246,7 +257,7 @@ def calc_area(binary_image, x, y, w, h):
 
 def pre_process_image(image_name):
     image = cv.imread(image_name)
-    print(image_name)
+    #print(image_name)
     image = cv.resize(image, (260, 260))
     image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
     blur = cv.GaussianBlur(image, (5, 5), 0)
@@ -263,6 +274,7 @@ def pre_process_image(image_name):
         x, y, w, h = rect
 
     return [erosion, x, y, w, h]
+
 
 def feature_extraction(image_name):
     pre_processed_image = pre_process_image(image_name)
@@ -294,14 +306,12 @@ def main(folder_path):
     # list storing image labels
     data = []
     labels = []
-    i = 0 #keeping count of iterations
-
+    i = 0
     # looping through list of all image file names
     for file_name in os.listdir(folder_path):
         label = file_name.index("_") + 1
         if file_name != ".DS_Store":
             features = feature_extraction(folder_path + "/" + file_name)
-            #print(features)
 
             if len(features) != 11:
                 for i in range(len(features), 11):
@@ -311,38 +321,64 @@ def main(folder_path):
             data.append(features)
             labels.append(file_name[label])
             i += 1
-
+            print("one more")
             if i > 0 and i % 1000 == 0:
                 print("[INFO] processed {}/{}".format(i, len(folder_path)))
         else:
             continue
 
-    print(data)
-    # le = LabelEncoder()
-    # labels = le.fit_transform(labels)
-    #
-    # data = np.array(data)
-    # labels = np_utils.to_categorical(labels, 36)
-    #
-    # print("[INFO] splitting data")
-    # (trainData, testData, trainLabels, testLabels) = train_test_split(data, labels, test_size=0.15, random_state=42)
-    #
-    # model = Sequential()
-    # model.add(Dense(768, input_dim=3072, init="uniform", activation="relu"))
-    # model.add(Dense(384, activation="relu", kernel_initializer="uniform"))
-    # model.add(Dense(36))
-    # model.add(Activation("softmax"))
-    #
-    # # train the model using SGD
-    # print("[INFO] compiling model...")
-    # sgd = SGD(lr=0.01)
-    # model.compile(loss="binary_crossentropy", optimizer=sgd, metrics=["accuracy"])
-    # model.fit(trainData, trainLabels, epochs=50, batch_size=128, verbose=1)
-    #
-    # # show the accuracy on the testing set
+    #print(data)
+    le = LabelEncoder()
+    labels = le.fit_transform(labels)
+
+    data = np.array(data)
+    print("Data shape", data.shape)
+
+    labels = np_utils.to_categorical(labels, 36)
+    print("Labels shape", labels.shape)
+
+    print("[INFO] splitting data")
+    (trainData, testData, trainLabels, testLabels) = train_test_split(data, labels, test_size=0.15, random_state=42)
+
+    model = Sequential()
+    model.add(Dense(768, input_dim=1, kernel_initializer="uniform", activation="relu"))
+    model.add(Dense(38, activation="relu", kernel_initializer="uniform"))
+    model.add(Dense(36))
+    model.add(Activation("softmax"))
+
+    # train the model using SGD
+    print("[INFO] compiling model...")
+    sgd = SGD(lr=0.01)
+    model.compile(loss="categorical_crossentropy", optimizer=sgd, metrics=["accuracy"])
+
+    history = model.fit(trainData, trainLabels, validation_data=(testData, testLabels), epochs=25, batch_size=128, verbose=1)
+
+    # summarize history for accuracy
+    plt.plot(history.history['acc'])
+    plt.plot(history.history['val_acc'])
+    plt.title('model accuracy')
+    plt.ylabel('accuracy')
+    plt.xlabel('epoch')
+    plt.legend(['train', 'test'], loc='upper left')
+    plt.show()
+
+    # summarize history for loss
+    plt.plot(history.history['loss'])
+    plt.plot(history.history['val_loss'])
+    plt.title('model loss')
+    plt.ylabel('loss')
+    plt.xlabel('epoch')
+    plt.legend(['train', 'test'], loc='upper left')
+    plt.show()
+
+    # show the accuracy on the testing set
     # print("[INFO] evaluating on testing set...")
-    # (loss, accuracy) = model.evaluate(testData, testLabels,batch_size=128, verbose=1)
-    # print("[INFO] loss={:.4f}, accuracy: {:.4f}%".format(loss,accuracy * 100))
+    # (loss, accuracy) = model.evaluate(testData, testLabels, batch_size=128, verbose=1)
+    #print("[INFO] loss={:.4f}, accuracy: {:.4f}%".format(loss, accuracy * 100))
+
+    # dump the network architecture and weights to file
+    print("[INFO] dumping architecture and weights to file...")
+    model.save("sign_language.h5")
 
 if __name__ == "__main__":
     #print(sys.argv[1])
