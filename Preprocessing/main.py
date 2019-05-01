@@ -2,11 +2,13 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import GridSearchCV
 from keras.wrappers.scikit_learn import KerasClassifier
 from sklearn.model_selection import train_test_split
+from tempfile import TemporaryFile
 from keras.layers import Activation
 from keras.models import Sequential
-from keras.optimizers import SGD
+from keras.optimizers import SGD, Nadam
 from keras.utils import np_utils
-from keras.layers import Dense
+from keras.layers import Dense, Dropout
+from keras.models import save_model
 import matplotlib.pyplot as plt
 import numpy as np
 import cv2 as cv
@@ -16,12 +18,24 @@ import sys
 import os
 
 
-def create_model():
+def create_model(learn_rate=0.01):
     # create model
-
+    model = Sequential()
+    model.add(Dense(11, kernel_initializer="uniform"))
+    model.add(Dense(29, activation="relu", kernel_initializer="uniform"))
+    model.add(Dense(36))
+    model.add(Activation("softmax"))
+    optimizer = Nadam(lr=learn_rate)
     # Compile model
-    model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+    model.compile(loss="categorical_crossentropy", optimizer=optimizer, metrics=["accuracy"])
     return model
+
+seed = 7
+np.random.seed(seed)
+
+labelfile = TemporaryFile()
+datafile = TemporaryFile()
+
 
 def crop_image(binary_image, y, x, w, h):
     crop = binary_image[y:y + h, x:x + w]
@@ -121,6 +135,8 @@ def find_finger_tip(binary_image, x, y, w, h):
                                 x_coords.append(i)
                                 y_coords.append(j)
                                 finger_count += 1
+                                if finger_count == 5:
+                                    break
                             else:
                                 pixel_counter = 0
                         else:
@@ -128,6 +144,8 @@ def find_finger_tip(binary_image, x, y, w, h):
                                 x_coords.append(i)
                                 y_coords.append(j)
                                 finger_count += 1
+                                if finger_count == 5:
+                                    break
                             else:
                                 pixel_counter = 0
                     else:
@@ -135,8 +153,8 @@ def find_finger_tip(binary_image, x, y, w, h):
             else:
                 pixel_counter = 0
     if finger_count == 0:
-        x_coords = [0]*5
-        y_coords = [0]*5
+        x_coords = [1.0]*5
+        y_coords = [1.0]*5
     return [finger_count, x_coords, y_coords]
 
 
@@ -299,59 +317,89 @@ def feature_extraction(image_name):
 
     # format to make sure we have a vector at the end of the day
     #print("features", angles)
-
     return angles
 
 def main(folder_path):
     # list storing image labels
     data = []
     labels = []
-    i = 0
+    vec = []
+    j = 1
     # looping through list of all image file names
-    for file_name in os.listdir(folder_path):
-        label = file_name.index("_") + 1
-        if file_name != ".DS_Store":
-            features = feature_extraction(folder_path + "/" + file_name)
+    # for file_name in os.listdir(folder_path):
+    #     label = file_name.index("_") + 1
+    #     if file_name != ".DS_Store":
+    #         features = feature_extraction(folder_path + "/" + file_name)
+    #
+    #         if len(features) < 11:
+    #             for i in range(len(features), 11):
+    #                 features.append(0.0)
+    #
+    #         if len(features) > 11:
+    #             area = features[-1]
+    #             features = features[0:10]
+    #             features.append(area)
+    #
+    #         #print(str(j) + " " + str(len(features)))
+    #
+    #         # adding extracted label and filename from image to the list of data and labels
+    #         data.append(features)
+    #         labels.append(file_name[label])
+    #         j += 1
+    #         if j > 0 and j % 1000 == 0:
+    #             print("[INFO] processed {}/{}".format(j, len(os.listdir(folder_path))))
+    #     else:
+    #         continue
+    # vec = vec + labels
+    # vec = list(set(vec))
+    # #print(vec)
+    # le = LabelEncoder()
+    # labels = le.fit_transform(labels)
+    #
+    # data = np.array(data) / 255.0
+    # labels = np_utils.to_categorical(labels, 36)
 
-            if len(features) != 11:
-                for i in range(len(features), 11):
-                    features.append(0)
+    # print("[INFO] saving labels and data...")
+    # np.save('labelfile.npy', labels)
+    # np.save('datafile.npy', data)
 
-            # adding extracted label and filename from image to the list of data and labels
-            data.append(features)
-            labels.append(file_name[label])
-            i += 1
-            print("one more")
-            if i > 0 and i % 1000 == 0:
-                print("[INFO] processed {}/{}".format(i, len(folder_path)))
-        else:
-            continue
-
-    #print(data)
-    le = LabelEncoder()
-    labels = le.fit_transform(labels)
-
-    data = np.array(data)
-    print("Data shape", data.shape)
-
-    labels = np_utils.to_categorical(labels, 36)
-    print("Labels shape", labels.shape)
+    print("[INFO] loading data")
+    data = np.load('../datafile.npy')
+    labels = np.load('../labelfile.npy')
 
     print("[INFO] splitting data")
     (trainData, testData, trainLabels, testLabels) = train_test_split(data, labels, test_size=0.15, random_state=42)
 
+    # Grid search
+    # model = KerasClassifier(build_fn=create_model, epochs=100, batch_size=10, verbose=0)
+    # # optimizer = ['SGD', 'RMSprop', 'Adagrad', 'Adadelta', 'Adam', 'Adamax', 'Nadam']
+    # learn_rate = [0.0001, 0.001, 0.01, 0.1, 0.2, 0.3, 0.5, 1]
+    # param_grid = dict(learn_rate=learn_rate)
+    # grid = GridSearchCV(estimator=model, param_grid=param_grid, n_jobs=1)
+    # grid_result = grid.fit(trainData, trainLabels)
+    # # summarize results
+    # print("Best: %f using %s" % (grid_result.best_score_, grid_result.best_params_))
+    # means = grid_result.cv_results_['mean_test_score']
+    # stds = grid_result.cv_results_['std_test_score']
+    # params = grid_result.cv_results_['params']
+    # for mean, stdev, param in zip(means, stds, params):
+    #     print("%f (%f) with: %r" % (mean, stdev, param))
+
     model = Sequential()
-    model.add(Dense(768, input_dim=1, kernel_initializer="uniform", activation="relu"))
-    model.add(Dense(38, activation="relu", kernel_initializer="uniform"))
+    model.add(Dense(11, kernel_initializer="uniform"))
+    model.add(Dropout(0.4))
+    model.add(Dense(29, activation="relu", kernel_initializer="uniform"))
+    model.add(Dropout(0.4))
     model.add(Dense(36))
-    model.add(Activation("softmax"))
+    model.add(Activation("sigmoid"))
 
     # train the model using SGD
     print("[INFO] compiling model...")
-    sgd = SGD(lr=0.01)
-    model.compile(loss="categorical_crossentropy", optimizer=sgd, metrics=["accuracy"])
+    sgd = SGD(lr=0.01, momentum=0.6)
+    nadam = Nadam(lr=0.001)
+    model.compile(loss="categorical_crossentropy", optimizer=nadam, metrics=["accuracy"])
 
-    history = model.fit(trainData, trainLabels, validation_data=(testData, testLabels), epochs=25, batch_size=128, verbose=1)
+    history = model.fit(trainData, trainLabels, validation_data=(testData, testLabels), epochs=300, batch_size=60, verbose=1)
 
     # summarize history for accuracy
     plt.plot(history.history['acc'])
@@ -372,15 +420,14 @@ def main(folder_path):
     plt.show()
 
     # show the accuracy on the testing set
-    # print("[INFO] evaluating on testing set...")
-    # (loss, accuracy) = model.evaluate(testData, testLabels, batch_size=128, verbose=1)
-    #print("[INFO] loss={:.4f}, accuracy: {:.4f}%".format(loss, accuracy * 100))
+    print("[INFO] evaluating on testing set...")
+    (loss, accuracy) = model.evaluate(testData, testLabels, batch_size=60, verbose=1)
+    print("[INFO] loss={:.4f}, accuracy: {:.4f}%".format(loss, accuracy * 100))
 
     # dump the network architecture and weights to file
     print("[INFO] dumping architecture and weights to file...")
-    model.save("sign_language.h5")
+    model.save("../sign_language.h5")
 
 if __name__ == "__main__":
     #print(sys.argv[1])
     main(sys.argv[1])  # main takes path to the dataset
-
