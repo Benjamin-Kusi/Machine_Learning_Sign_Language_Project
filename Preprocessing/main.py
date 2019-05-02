@@ -391,7 +391,7 @@ def main(folder_path):
     model.add(Dense(29, activation="relu", kernel_initializer="uniform"))
     model.add(Dropout(0.4))
     model.add(Dense(36))
-    model.add(Activation("sigmoid"))
+    model.add(Activation("softmax"))
 
     # train the model using SGD
     print("[INFO] compiling model...")
